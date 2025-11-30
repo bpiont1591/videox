@@ -1,42 +1,59 @@
-const express = require('express');
-const http = require('http');
-const socketIO = require('socket.io');
-const path = require('path');
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel Licencji</title>
+  <style>
+    body { font-family: Arial; background: #111; color: white; padding: 20px; }
+    table { width: 100%; max-width: 600px; border-collapse: collapse; margin-bottom: 20px; }
+    td, th { border: 1px solid #444; padding: 10px; text-align: left; }
+    input { padding: 5px; width: 200px; }
+    button { padding: 5px 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
 
-const app = express();
-const server = http.createServer(app);
-const io = socketIO(server);
+<h1>🔑 Panel Licencji</h1>
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+<input id="newKey" placeholder="Nowy klucz" />
+<button onclick="addKey()">Dodaj klucz</button>
 
-app.get('/style.css', (req, res) => {
-    res.sendFile(path.join(__dirname, 'style.css'));
-});
+<h2>Aktywne Licencje</h2>
+<table id="table">
+  <tr><th>Klucz</th><th>Status</th></tr>
+</table>
 
-io.on('connection', socket => {
-    console.log('Nowe połączenie:', socket.id);
+<script>
+async function loadKeys() {
+  const res = await fetch("/api/licenses");
+  const data = await res.json();
+  const table = document.getElementById("table");
+  table.innerHTML = "<tr><th>Klucz</th><th>Status</th></tr>";
+  Object.keys(data).forEach(key => {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${key}</td><td>${data[key] ? "Aktywna" : "Nieaktywna"}</td>`;
+    table.appendChild(row);
+  });
+}
 
-    socket.on('createRoom', roomId => {
-        socket.join(roomId);
-        console.log(`Pokój ${roomId} utworzony przez ${socket.id}`);
-    });
+async function addKey() {
+  const input = document.getElementById("newKey");
+  const key = input.value.trim();
+  if (!key) return alert("Podaj klucz!");
+  const res = await fetch("/api/licenses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key })
+  });
+  const data = await res.json();
+  alert(data.message);
+  input.value = "";
+  loadKeys();
+}
 
-    socket.on('joinRoom', roomId => {
-        socket.join(roomId);
-        console.log(`Użytkownik ${socket.id} dołączył do pokoju ${roomId}`);
-    });
+// Ładuj klucze przy starcie
+loadKeys();
+</script>
 
-    socket.on('screenData', ({ roomId, data }) => {
-        socket.to(roomId).emit('screenData', data);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Rozłączono:', socket.id);
-    });
-});
-
-server.listen(3000, () => {
-    console.log('Serwer działa na porcie 3000');
-});
+</body>
+</html>
